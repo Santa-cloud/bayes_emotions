@@ -11,95 +11,84 @@ class NaiveBayesClassifier:
     def fit(self, X, y):
         """
         Trenuje model na podstawie danych treningowych.
-        
+
         Args:
-        X: Lista wektorów cech (dane treningowe).
-        y: Lista etykiet klas odpowiadających wektorom cech.
+        X: Tablica numpy z wektorami cech (dane treningowe).
+        y: Tablica numpy z etykietami klas odpowiadającymi wektorom cech.
         """
+        # Konwersja do tablic numpy (jeśli nie są)
+        X = np.array(X)
+        y = np.array(y)
+
         # Wyznacz unikalne klasy
-        classes = set(y)
-        
+        classes = np.unique(y)
+
         for cls in classes:
             # Filtruj dane dla danej klasy
-            X_cls = [X[i] for i in range(len(y)) if y[i] == cls]
-            X_cls = np.array(X_cls)
-            
+            X_cls = X[y == cls]
             # Oblicz średnie i wariancje dla każdej cechy
             self.class_means[cls] = np.mean(X_cls, axis=0)
-            self.class_variances[cls] = np.var(X_cls, axis=0)
-            
+            self.class_variances[cls] = np.var(X_cls, axis=0) + 1e-6  # Dodaj niewielką stałą
             # Oblicz priorytet klasy jako stosunek liczby próbek w tej klasie do liczby wszystkich próbek
-            self.class_priors[cls] = len(X_cls) / len(X)
+            self.class_priors[cls] = X_cls.shape[0] / X.shape[0]
 
-    def _gaussian_probability(self, x, mean, variance):
+    def _log_gaussian_probability(self, x, mean, variance):
         """
-        Oblicza prawdopodobieństwo cechy na podstawie rozkładu Gaussa.
-        
+        Oblicza logarytm prawdopodobieństwa cechy na podstawie rozkładu Gaussa.
+
         Args:
         x: Wartość cechy.
         mean: Średnia dla danej cechy.
         variance: Wariancja dla danej cechy.
-        
+
         Returns:
-        Prawdopodobieństwo dla danej cechy.
+        Logarytm prawdopodobieństwa dla danej cechy.
         """
-        if variance == 0:
-            # Unikaj dzielenia przez 0 w przypadku braku wariancji
-            variance = 1e-6
-        exponent = math.exp(-((x - mean) ** 2) / (2 * variance))
-        return (1 / math.sqrt(2 * math.pi * variance)) * exponent
+        exponent = -((x - mean) ** 2) / (2 * variance)
+        log_prob = -0.5 * (np.log(2 * np.pi * variance)) + exponent
+        return log_prob
 
     def predict(self, X):
         """
         Dokonuje predykcji dla danych testowych.
-        
+
         Args:
-        X: Lista wektorów cech (dane testowe).
-        
+        X: Tablica numpy z wektorami cech (dane testowe).
+
         Returns:
         Lista etykiet klas dla danych testowych.
         """
+        X = np.array(X)
         predictions = []
-        
+
         for sample in X:
-            class_probabilities = {}
-            
-            # Oblicz prawdopodobieństwa a posteriori dla każdej klasy
+            class_log_probabilities = {}
+
+            # Oblicz logarytmy prawdopodobieństw a posteriori dla każdej klasy
             for cls in self.class_means:
-                likelihood = 1
-                for i in range(len(sample)):
-                    likelihood *= self._gaussian_probability(
-                        sample[i], 
-                        self.class_means[cls][i], 
-                        self.class_variances[cls][i]
-                    )
-                class_probabilities[cls] = likelihood * self.class_priors[cls]
-            
-            # Przypisz klasę o najwyższym prawdopodobieństwie
-            predicted_class = max(class_probabilities, key=class_probabilities.get)
+                mean = self.class_means[cls]
+                variance = self.class_variances[cls]
+                log_probs = self._log_gaussian_probability(sample, mean, variance)
+                log_likelihood = np.sum(log_probs)
+                log_prior = math.log(self.class_priors[cls])
+                class_log_probabilities[cls] = log_likelihood + log_prior
+
+            # Przypisz klasę o najwyższym logarytmie prawdopodobieństwa
+            predicted_class = max(class_log_probabilities, key=class_log_probabilities.get)
             predictions.append(predicted_class)
-        
+
         return predictions
-
-    # def evaluate(self, X, y):
-    #     """
-    #     Ocena dokładności modelu.
-        
-    #     Args:
-    #     X: Lista wektorów cech (dane testowe).
-    #     y: Lista prawdziwych etykiet klas dla danych testowych.
-        
-    #     Returns:
-    #     Dokładność klasyfikatora.
-    #     """
-    #     predictions = self.predict(X)
-    #     correct = sum([1 for i in range(len(y)) if predictions[i] == y[i]])
-    #     return correct / len(y)
-
 
     def evaluate(self, X_test, y_test):
         """
         Ocena klasyfikatora na danych testowych.
+
+        Args:
+        X_test: Tablica numpy z wektorami cech (dane testowe).
+        y_test: Lista lub tablica numpy z prawdziwymi etykietami klas dla danych testowych.
+
+        Returns:
+        Dokładność klasyfikatora oraz raport klasyfikacji.
         """
         predictions = self.predict(X_test)
         correct = sum(1 for true, pred in zip(y_test, predictions) if true == pred)
@@ -135,3 +124,17 @@ class NaiveBayesClassifier:
 
         return accuracy, report
 
+    def score(self, X, y):
+        """
+        Oblicza dokładność klasyfikatora na danych X i y.
+
+        Args:
+        X: Tablica numpy z wektorami cech.
+        y: Lista lub tablica numpy z etykietami klas.
+
+        Returns:
+        Dokładność klasyfikatora.
+        """
+        predictions = self.predict(X)
+        correct = sum(1 for true, pred in zip(y, predictions) if true == pred)
+        return correct / len(y)
