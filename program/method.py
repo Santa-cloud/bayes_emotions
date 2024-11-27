@@ -107,13 +107,31 @@ class NaiveBayesClassifier:
 
         # Generowanie raportu klasyfikacji
         from collections import Counter
-        report = "Klasyfikacja na podstawie danych testowych:\n"
         class_counts = Counter(y_test)
-        for cls in class_counts:
-            cls_correct = sum(1 for true, pred in zip(y_test, predictions) if true == pred and true == cls)
-            cls_total = class_counts[cls]
-            precision = cls_correct / predictions.count(cls) if predictions.count(cls) > 0 else 0
-            recall = cls_correct / cls_total
-            report += f"Klasa {cls}: Precyzja: {precision:.2f}, Czułość: {recall:.2f}\n"
+        pred_counts = Counter(predictions)
+        classes = sorted(class_counts.keys())
+
+        # Nagłówek tabeli
+        report = "\nKlasyfikacja na podstawie danych testowych:\n"
+        report += "{:<12} {:<10} {:<10} {:<10} {:<10}\n".format('Klasa', 'Precyzja', 'Czułość', 'F1-score', 'Support')
+        report += "-" * 54 + "\n"
+
+        for cls in classes:
+            tp = sum(1 for true, pred in zip(y_test, predictions) if true == cls and pred == cls)
+            fp = sum(1 for true, pred in zip(y_test, predictions) if true != cls and pred == cls)
+            fn = sum(1 for true, pred in zip(y_test, predictions) if true == cls and pred != cls)
+
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+            support = class_counts[cls]
+
+            report += "{:<12} {:<10.2f} {:<10.2f} {:<10.2f} {:<10}\n".format(
+                cls, precision, recall, f1, support
+            )
+
+        report += "-" * 54 + "\n"
+        report += "Dokładność modelu: {:.2f}%\n".format(accuracy * 100)
 
         return accuracy, report
+
