@@ -6,6 +6,8 @@ import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from datetime import datetime
+import csv
 
 class ProgramState:
     """
@@ -144,7 +146,7 @@ def train_model(state):
 
 def test_classifier(state):
     """
-    Testuje wytrenowany klasyfikator na zbiorze testowym.
+    Testuje wytrenowany klasyfikator na zbiorze testowym i zapisuje wyniki do pliku monitor.csv.
     """
     print("\nTestowanie klasyfikatora:")
     if state.X_test is None or state.y_test is None:
@@ -157,19 +159,54 @@ def test_classifier(state):
 
     print(f"\nTestowanie ostatnio wytrenowanego klasyfikatora: {state.last_trained_classifier}")
 
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    monitor_csv = "monitor.csv"
+
     if state.last_trained_classifier == "custom":
         # Testowanie własnej implementacji
         accuracy, classification_report_custom = state.custom_classifier.evaluate(state.X_test, state.y_test)
         print(classification_report_custom)
+        classifier_name = "Custom Naive Bayes"
+        accuracy_percentage = accuracy * 100
+
     elif state.last_trained_classifier == "sklearn":
         # Testowanie GaussianNB z sklearn
         predictions = state.sklearn_classifier.predict(state.X_test)
         accuracy = state.sklearn_classifier.score(state.X_test, state.y_test)
         print(f"\nDokładność: {accuracy * 100:.2f}%")
         print("\nRaport klasyfikacji:")
-        print(classification_report(state.y_test, predictions))
+        report = classification_report(state.y_test, predictions)
+        print(report)
+        classifier_name = "Sklearn GaussianNB"
+        accuracy_percentage = accuracy * 100
+
     else:
         print("Nieprawidłowy stan klasyfikatora. Powrót do menu.")
+        return
+
+    # Zapisywanie wyników do pliku monitor.csv
+    try:
+        file_exists = os.path.isfile(monitor_csv)
+        with open(monitor_csv, mode='a', newline='', encoding='utf-8') as csv_file:
+            fieldnames = ['timestamp', 'classifier', 'accuracy', 'n_mfcc', 'hop_length', 'n_fft', 'test_size']
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()
+
+            writer.writerow({
+                'timestamp': timestamp,
+                'classifier': classifier_name,
+                'accuracy': f"{accuracy_percentage:.2f}%",
+                'n_mfcc': state.n_mfcc,
+                'hop_length': state.hop_length,
+                'n_fft': state.n_fft,
+                'test_size': state.test_size
+            })
+        print(f"Wyniki testu zostały zapisane do pliku {monitor_csv}.")
+
+    except Exception as e:
+        print(f"Błąd podczas zapisu do pliku {monitor_csv}: {e}")
 
 def main():
     """
