@@ -1,3 +1,4 @@
+# control.py
 from problem import RAVDESSProblem
 from method import NaiveBayesClassifier
 from sklearn.naive_bayes import GaussianNB
@@ -27,6 +28,9 @@ class ProgramState:
         self.X_test = None
         self.y_train = None
         self.y_test = None
+
+        # Zmienna przechowująca ostatnio wytrenowany klasyfikator
+        self.last_trained_classifier = None  # Możliwe wartości: 'custom', 'sklearn'
 
 def display_menu():
     """
@@ -129,9 +133,11 @@ def train_model(state):
 
     if classifier_choice == "1":
         state.custom_classifier.fit(state.X_train, state.y_train)
+        state.last_trained_classifier = 'custom'
         print("Model został wytrenowany przy użyciu własnej implementacji Naive Bayes.")
     elif classifier_choice == "2":
         state.sklearn_classifier.fit(state.X_train, state.y_train)
+        state.last_trained_classifier = 'sklearn'
         print("Model został wytrenowany przy użyciu Gaussian Naive Bayes z sklearn.")
     else:
         print("Nieprawidłowy wybór. Powrót do menu.")
@@ -145,16 +151,17 @@ def test_classifier(state):
         print("Błąd: Nie przeprowadzono procesu trenowania. Najpierw wykonaj trenowanie.")
         return
 
-    print("\nWybierz klasyfikator do testowania:")
-    print("1. Własna implementacja Naive Bayes")
-    print("2. Gaussian Naive Bayes z sklearn")
-    classifier_choice = input("Wybierz opcję: ")
+    if state.last_trained_classifier is None:
+        print("Błąd: Nie przeprowadzono procesu trenowania. Najpierw wykonaj trenowanie.")
+        return
 
-    if classifier_choice == "1":
+    print(f"\nTestowanie ostatnio wytrenowanego klasyfikatora: {state.last_trained_classifier}")
+
+    if state.last_trained_classifier == "custom":
         # Testowanie własnej implementacji
         accuracy, classification_report_custom = state.custom_classifier.evaluate(state.X_test, state.y_test)
         print(classification_report_custom)
-    elif classifier_choice == "2":
+    elif state.last_trained_classifier == "sklearn":
         # Testowanie GaussianNB z sklearn
         predictions = state.sklearn_classifier.predict(state.X_test)
         accuracy = state.sklearn_classifier.score(state.X_test, state.y_test)
@@ -162,7 +169,7 @@ def test_classifier(state):
         print("\nRaport klasyfikacji:")
         print(classification_report(state.y_test, predictions))
     else:
-        print("Nieprawidłowy wybór. Powrót do menu.")
+        print("Nieprawidłowy stan klasyfikatora. Powrót do menu.")
 
 def main():
     """
