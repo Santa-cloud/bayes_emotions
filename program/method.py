@@ -1,12 +1,17 @@
-import math
+# method.py
+
 import numpy as np
+from sklearn.metrics import classification_report
 
 class NaiveBayesClassifier:
     def __init__(self):
-        # Przechowuje parametry modelu
-        self.class_means = {}
-        self.class_variances = {}
-        self.class_priors = {}
+        """
+        Inicjalizuje strukturę klasyfikatora Naive Bayes.
+        """
+        self.classes = None          # Lista unikalnych klas
+        self.class_priors = {}       # Prawdopodobieństwa a priori P(Ω_k)
+        self.mean = {}               # Średnie cech dla każdej klasy μ_k,i
+        self.var = {}                # Wariancje cech dla każdej klasy σ_k,i^2
 
     def fit(self, X, y):
         """
@@ -21,32 +26,61 @@ class NaiveBayesClassifier:
         y = np.array(y)
 
         # Wyznacz unikalne klasy
-        classes = np.unique(y)
+        self.classes = np.unique(y)
+        n_features = X.shape[1]
 
-        for cls in classes:
+        for cls in self.classes:
             # Filtruj dane dla danej klasy
-            X_cls = X[y == cls]
-            # Oblicz średnie i wariancje dla każdej cechy
-            self.class_means[cls] = np.mean(X_cls, axis=0)
-            self.class_variances[cls] = np.var(X_cls, axis=0) + 1e-6  # Dodaj niewielką stałą
-            # Oblicz priorytet klasy jako stosunek liczby próbek w tej klasie do liczby wszystkich próbek
-            self.class_priors[cls] = X_cls.shape[0] / X.shape[0]
+            X_c = X[y == cls]
+            # Oblicz prawdopodobieństwo a priori P(Ω_k)
+            self.class_priors[cls] = X_c.shape[0] / X.shape[0]
+            # Oblicz średnie μ_k,i
+            self.mean[cls] = np.mean(X_c, axis=0)
+            # Oblicz wariancje σ_k,i^2 (dodajemy niewielką stałą, aby uniknąć dzielenia przez zero)
+            self.var[cls] = np.var(X_c, axis=0) + 1e-6
 
-    def _log_gaussian_probability(self, x, mean, variance):
+    def _log_gaussian_density(self, x, cls):
         """
-        Oblicza logarytm prawdopodobieństwa cechy na podstawie rozkładu Gaussa.
+        Oblicza logarytm gęstości prawdopodobieństwa dla rozkładu Gaussa.
 
         Args:
-        x: Wartość cechy.
-        mean: Średnia dla danej cechy.
-        variance: Wariancja dla danej cechy.
+        x: Wektor cech pojedynczej próbki.
+        cls: Klasa, dla której obliczamy gęstość.
 
         Returns:
-        Logarytm prawdopodobieństwa dla danej cechy.
+        Wektor logarytmów gęstości dla każdej cechy.
         """
-        exponent = -((x - mean) ** 2) / (2 * variance)
-        log_prob = -0.5 * (np.log(2 * np.pi * variance)) + exponent
-        return log_prob
+        mean = self.mean[cls]
+        var = self.var[cls]
+        # Obliczanie składnika wykładniczego
+        numerator = -0.5 * ((x - mean) ** 2) / var
+        # Obliczanie składnika normalizacyjnego
+        denominator = -0.5 * np.log(2 * np.pi * var)
+        return numerator + denominator
+
+    def _predict_single(self, x):
+        """
+        Przewiduje klasę dla pojedynczej próbki.
+
+        Args:
+        x: Wektor cech pojedynczej próbki.
+
+        Returns:
+        Przewidywana klasa dla próbki x.
+        """
+        posteriors = []
+
+        for cls in self.classes:
+            # Obliczanie logarytmu prawdopodobieństwa a priori log(P(Ω_k))
+            prior = np.log(self.class_priors[cls])
+            # Obliczanie logarytmu prawdopodobieństwa warunkowego sum_{i} log(P(c_i | Ω_k))
+            conditional = np.sum(self._log_gaussian_density(x, cls))
+            # Łączne logarytmy: log(P(Ω_k)) + sum_{i} log(P(c_i | Ω_k))
+            posterior = prior + conditional
+            posteriors.append(posterior)
+
+        # Wybieramy klasę z największym logarytmem prawdopodobieństwa a posteriori
+        return self.classes[np.argmax(posteriors)]
 
     def predict(self, X):
         """
@@ -56,28 +90,11 @@ class NaiveBayesClassifier:
         X: Tablica numpy z wektorami cech (dane testowe).
 
         Returns:
-        Lista etykiet klas dla danych testowych.
+        Tablica etykiet klas dla danych testowych.
         """
         X = np.array(X)
-        predictions = []
-
-        for sample in X:
-            class_log_probabilities = {}
-
-            # Oblicz logarytmy prawdopodobieństw a posteriori dla każdej klasy
-            for cls in self.class_means:
-                mean = self.class_means[cls]
-                variance = self.class_variances[cls]
-                log_probs = self._log_gaussian_probability(sample, mean, variance)
-                log_likelihood = np.sum(log_probs)
-                log_prior = math.log(self.class_priors[cls])
-                class_log_probabilities[cls] = log_likelihood + log_prior
-
-            # Przypisz klasę o najwyższym logarytmie prawdopodobieństwa
-            predicted_class = max(class_log_probabilities, key=class_log_probabilities.get)
-            predictions.append(predicted_class)
-
-        return predictions
+        y_pred = [self._predict_single(x) for x in X]
+        return np.array(y_pred)
 
     def evaluate(self, X_test, y_test):
         """
@@ -85,43 +102,16 @@ class NaiveBayesClassifier:
 
         Args:
         X_test: Tablica numpy z wektorami cech (dane testowe).
-        y_test: Lista lub tablica numpy z prawdziwymi etykietami klas dla danych testowych.
+        y_test: Tablica numpy z prawdziwymi etykietami klas dla danych testowych.
 
         Returns:
         Dokładność klasyfikatora oraz raport klasyfikacji.
         """
-        predictions = self.predict(X_test)
-        correct = sum(1 for true, pred in zip(y_test, predictions) if true == pred)
-        accuracy = correct / len(y_test)
-
+        y_pred = self.predict(X_test)
+        # Obliczanie dokładności
+        accuracy = np.mean(y_pred == y_test)
         # Generowanie raportu klasyfikacji
-        from collections import Counter
-        class_counts = Counter(y_test)
-        pred_counts = Counter(predictions)
-        classes = sorted(class_counts.keys())
-
-        # Nagłówek tabeli
-        report = "\nKlasyfikacja na podstawie danych testowych:\n"
-        report += "{:<12} {:<10} {:<10} {:<10} {:<10}\n".format('Klasa', 'Precyzja', 'Czułość', 'F1-score', 'Support')
-        report += "-" * 54 + "\n"
-
-        for cls in classes:
-            tp = sum(1 for true, pred in zip(y_test, predictions) if true == cls and pred == cls)
-            fp = sum(1 for true, pred in zip(y_test, predictions) if true != cls and pred == cls)
-            fn = sum(1 for true, pred in zip(y_test, predictions) if true == cls and pred != cls)
-
-            precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-            recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-            f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-            support = class_counts[cls]
-
-            report += "{:<12} {:<10.2f} {:<10.2f} {:<10.2f} {:<10}\n".format(
-                cls, precision, recall, f1, support
-            )
-
-        report += "-" * 54 + "\n"
-        report += "Dokładność modelu: {:.2f}%\n".format(accuracy * 100)
-
+        report = classification_report(y_test, y_pred)
         return accuracy, report
 
     def score(self, X, y):
@@ -130,11 +120,11 @@ class NaiveBayesClassifier:
 
         Args:
         X: Tablica numpy z wektorami cech.
-        y: Lista lub tablica numpy z etykietami klas.
+        y: Tablica numpy z etykietami klas.
 
         Returns:
         Dokładność klasyfikatora.
         """
-        predictions = self.predict(X)
-        correct = sum(1 for true, pred in zip(y, predictions) if true == pred)
-        return correct / len(y)
+        y_pred = self.predict(X)
+        accuracy = np.mean(y_pred == y)
+        return accuracy

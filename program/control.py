@@ -168,7 +168,6 @@ def test_classifier(state):
         print(classification_report_custom)
         classifier_name = "Custom Naive Bayes"
         accuracy_percentage = accuracy * 100
-
     elif state.last_trained_classifier == "sklearn":
         # Testowanie GaussianNB z sklearn
         predictions = state.sklearn_classifier.predict(state.X_test)
