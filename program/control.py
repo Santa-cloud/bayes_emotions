@@ -15,7 +15,7 @@ class ProgramState:
     """
     def __init__(self):
         # Domyślne parametry
-        self.data_path = r"C:\politechnika OKNO\R4_1PS\Metody Sztuczej Inteligencji\projekt\data"
+        self.data_path = os.getcwd()
         self.output_csv = "features.csv"
         self.n_mfcc = 20
         self.hop_length = 512

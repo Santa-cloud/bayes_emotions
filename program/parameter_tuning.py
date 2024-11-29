@@ -14,14 +14,14 @@ def parameter_tuning():
     Manipuluje parametrami wejściowymi, trenuje model i zapisuje wyniki do pliku monitor.csv.
     """
     # Ścieżka do danych
-    data_path = r"C:\politechnika OKNO\R4_1PS\Metody Sztuczej Inteligencji\projekt\data"
+    data_path = os.getcwd()
     if not os.path.exists(data_path):
         print(f"Błąd: Ścieżka {data_path} nie istnieje.")
         return
 
     # Ustawienie zakresów parametrów do testowania
     n_mfcc_values = [12, 16, 20, 24, 28, 30]
-    hop_length_values = [256, 512, 1024]
+    hop_length_values = [128, 256, 512, 1024]
     n_fft_values = [512, 1024, 2048]
     test_size_values = [0.1, 0.2, 0.3, 0.4, 0.5]
 

@@ -1,3 +1,4 @@
+# problem.py
 import os
 import csv
 import librosa
@@ -13,6 +14,7 @@ class RAVDESSProblem:
         data_path: Ścieżka do folderu z danymi (pliki audio .wav).
         n_mfcc: Liczba współczynników MFCC do wyznaczenia.
         hop_length: Przesunięcie ramek dla funkcji Librosa.
+        n_fft: Długość okna FFT.
         test_size: Procent danych przeznaczonych na zbiór testowy.
         output_csv: Nazwa pliku, w którym będą zapisane cechy.
         """
@@ -32,7 +34,7 @@ class RAVDESSProblem:
             '05': 'angry',
             '06': 'fearful',
             '07': 'disgust',
-            '08': 'suprised'
+            '08': 'surprised'
         }
 
     def extract_features(self):
@@ -40,7 +42,7 @@ class RAVDESSProblem:
         Wyodrębnia cechy MFCC i ich wariancje ze wszystkich plików audio w folderze i zapisuje je do pliku CSV.
         """
         # Otwórz plik CSV do zapisu
-        with open(self.output_csv, mode='w', newline='') as csv_file:
+        with open(self.output_csv, mode='w', newline='', encoding='utf-8') as csv_file:
             writer = csv.writer(csv_file)
             # Zapisz nagłówki kolumn
             header = ['file_name', 'label'] + [f'mfcc_mean_{i}' for i in range(self.n_mfcc)] + \
@@ -49,30 +51,39 @@ class RAVDESSProblem:
                      [f'delta_var_{i}' for i in range(self.n_mfcc)]
             writer.writerow(header)
             
-            for root, _, files in os.walk(self.data_path):
+            for root, dirs, files in os.walk(self.data_path):
+                # Pomijamy folder 'venv'
+                dirs[:] = [d for d in dirs if d != 'venv']
                 for file in files:
                     if file.endswith(".wav"):
                         file_path = os.path.join(root, file)
                         print(f'Wyodrębnianie cech z pliku: {file_path}')
                         
-                        # Wczytaj plik audio
-                        y, sr = librosa.load(file_path, sr=None)
-                        
-                        # Wyodrębnij cechy MFCC i delta MFCC
-                        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc, hop_length=self.hop_length, n_fft=self.n_fft)
-                        delta_mfccs = librosa.feature.delta(mfccs)
-                        
-                        # Oblicz średnie i wariancje cech
-                        mfcc_means = np.mean(mfccs, axis=1)
-                        mfcc_vars = np.var(mfccs, axis=1)
-                        delta_means = np.mean(delta_mfccs, axis=1)
-                        delta_vars = np.var(delta_mfccs, axis=1)
-                        
-                        # Połącz cechy w jeden wektor
-                        feature_vector = np.concatenate([mfcc_means, mfcc_vars, delta_means, delta_vars])
-                        
                         # Wyodrębnij etykietę z nazwy pliku
-                        label = self.labels_dict[file.split("-")[2]]
+                        try:
+                            parts = file.split("-")
+                            if len(parts) < 3:
+                                print(f"Nazwa pliku {file} nie jest w oczekiwanym formacie. Pomijanie pliku.")
+                                continue
+                            label_code = parts[2]
+                            label = self.labels_dict[label_code]
+                        except (IndexError, KeyError) as e:
+                            print(f"Błąd podczas wyodrębniania etykiety z pliku {file}: {e}")
+                            continue  # Pomija ten plik i przechodzi do następnego
+                        
+                        # Wczytaj plik audio i wyodrębnij cechy
+                        try:
+                            y, sr = librosa.load(file_path, sr=None)
+                            mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=self.n_mfcc, hop_length=self.hop_length, n_fft=self.n_fft)
+                            delta_mfccs = librosa.feature.delta(mfccs)
+                            mfcc_means = np.mean(mfccs, axis=1)
+                            mfcc_vars = np.var(mfccs, axis=1)
+                            delta_means = np.mean(delta_mfccs, axis=1)
+                            delta_vars = np.var(delta_mfccs, axis=1)
+                            feature_vector = np.concatenate([mfcc_means, mfcc_vars, delta_means, delta_vars])
+                        except Exception as e:
+                            print(f"Błąd podczas przetwarzania pliku {file}: {e}")
+                            continue  # Pomija ten plik i przechodzi do następnego
                         
                         # Dodaj dane do pliku CSV
                         row = [file, label] + feature_vector.tolist()
@@ -81,7 +92,6 @@ class RAVDESSProblem:
                         # Dodaj cechy i etykiety do wewnętrznych list
                         self.features.append(feature_vector)
                         self.labels.append(label)
-
 
     def prepare_data(self):
         """
