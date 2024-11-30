@@ -114,17 +114,3 @@ class NaiveBayesClassifier:
         report = classification_report(y_test, y_pred)
         return accuracy, report
 
-    def score(self, X, y):
-        """
-        Oblicza dokładność klasyfikatora na danych X i y.
-
-        Args:
-        X: Tablica numpy z wektorami cech.
-        y: Tablica numpy z etykietami klas.
-
-        Returns:
-        Dokładność klasyfikatora.
-        """
-        y_pred = self.predict(X)
-        accuracy = np.mean(y_pred == y)
-        return accuracy

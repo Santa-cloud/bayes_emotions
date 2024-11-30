@@ -14,7 +14,8 @@ def parameter_tuning():
     Manipuluje parametrami wejściowymi, trenuje model i zapisuje wyniki do pliku monitor.csv.
     """
     # Ścieżka do danych
-    data_path = os.getcwd()
+    # data_path = os.getcwd()
+    data_path = r"C:\politechnika OKNO\R4_1PS\Metody Sztuczej Inteligencji\projekt\data"
     if not os.path.exists(data_path):
         print(f"Błąd: Ścieżka {data_path} nie istnieje.")
         return

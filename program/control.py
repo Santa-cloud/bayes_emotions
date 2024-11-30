@@ -63,18 +63,18 @@ def set_parameters(state):
         print(f"Błąd: {e}. Powrót do poprzedniej wartości.")
 
     try:
-        hop_length_input = input(f"Podaj stopień przeplotu ramek (domyślnie: {state.hop_length}): ") or state.hop_length
+        hop_length_input = input(f"Podaj długość przesunięcia ramek (domyślnie: {state.hop_length}): ") or state.hop_length
         state.hop_length = int(hop_length_input)
         if state.hop_length <= 0:
-            raise ValueError("Stopień przeplotu ramek musi być większy od 0.")
+            raise ValueError("Długość przesunięcia ramek musi być większa od 0.")
     except ValueError as e:
         print(f"Błąd: {e}. Powrót do poprzedniej wartości.")
 
     try:
-        n_fft_input = input(f"Podaj długość okna ramki (n_fft) (domyślnie: {state.n_fft}): ") or state.n_fft
+        n_fft_input = input(f"Podaj długość ramki (n_fft) (domyślnie: {state.n_fft}): ") or state.n_fft
         state.n_fft = int(n_fft_input)
         if state.n_fft <= 0:
-            raise ValueError("Długość okna ramki musi być większa od 0.")
+            raise ValueError("Długość ramki musi być większa od 0.")
     except ValueError as e:
         print(f"Błąd: {e}. Powrót do poprzedniej wartości.")
 
